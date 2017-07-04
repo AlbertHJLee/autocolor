@@ -9,8 +9,20 @@ def rgb2gray(image):
     
     # Convert RGB image to grayscale using luma https://en.wikipedia.org/wiki/Luma_(video)
     grayimg = 0.2126*image[:,:,0] + 0.7152*image[:,:,1] + 0.0722*image[:,:,2]
+    grayimg = np.minimum(grayimg*0.+255.,grayimg)
+    grayimg = np.maximum(grayimg*0.,grayimg)
     
     return grayimg
+
+
+
+def pushwhite(image):
+
+    # Push non-black colors to white
+    lines = np.minimum(image*0.+255.,(image**3)*20.)
+
+    return lines
+
 
 
 def decolor():
@@ -38,5 +50,5 @@ def decolor():
         if (uniqueimgs[i]):
             decolored[i,:,:] = rgb2gray(rawimages[i,:,:,:])
 
-    return [decolored,imgindex]
+    return [rawimages,decolored,imgindex]
 

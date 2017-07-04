@@ -1,0 +1,23 @@
+DEVELOPMENT LOG
+
+Notes, issues, and strategies for past and upcoming features go here.
+
+
+
+2017.7.4
+
+The goal of this project is to automate base coloring in illustrations and animations.
+
+We need a set of training data to teach our network how to autocolor black and white line art.
+Ripping frames from professional animation clips gives us a lot of output images.
+To generate input images we must extract line art from fully colored frames.
+
+Problem: 
+Line extraction should be robust for a wide range of animation styles.
+Edge detection is not good for this because it is senstive to features that aren't line art.
+
+Possible solution:
+Use a combination of filters to extract the lines, of which edge detection might be one element.
+Most animations color in lines that are *originally black*
+We may be able to take advantage of this by using a kernel sensitive to sharp gradients towards the color black.
+
