@@ -48,7 +48,9 @@ def convolve(img1,img2):
         return img1
 
     output = img1*0.
-    
+
+    # Convolve efficiently by adding the entire image (or a section of it) to itself
+    # and iterating for all necessary displacements (dx,dy)
     for i in range(kernelx):
         for j in range(kernely):
             if (i < (kernelx*.5) ):
@@ -82,6 +84,38 @@ def canny(image):
     Dy = np.array([[-1,-2,-1],[0,0,0],[1,2,1]])
     Gx = convolve(image,Dx)
     Gy = convolve(image,Dy)
+    G = np.sqrt(Gx**2 + Gy**2)
+    theta = np.arctan(Gy/(Gx+1e-20))
+
+    return [G,theta]
+
+
+
+
+def linedetector(image):
+
+    # Convolve image with filter that is sensitive to lines of a certain width
+
+    Kx = np.array([[-1,-1,0,1,2,1,0,-1,-1],
+                   [-1,-1,0,1,2,1,0,-1,-1],
+                   [-1,-1,0,1,2,1,0,-1,-1],
+                   [-2,-2,0,2,4,2,0,-2,-2],
+                   [-2,-2,0,2,4,2,0,-2,-2],
+                   [-2,-2,0,2,4,2,0,-2,-2],
+                   [-1,-1,0,1,2,1,0,-1,-1],
+                   [-1,-1,0,1,2,1,0,-1,-1],
+                   [-1,-1,0,1,2,1,0,-1,-1]])
+    Ky = np.array([[-1,-1,-1,-2,-2,-2,-1,-1,-1],
+                   [-1,-1,-1,-2,-2,-2,-1,-1,-1],
+                   [ 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                   [ 1, 1, 1, 2, 2, 2, 1, 1, 1],
+                   [ 2, 2, 2, 4, 4, 4, 2, 2, 2],
+                   [ 1, 1, 1, 2, 2, 2, 1, 1, 1],
+                   [ 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                   [-1,-1,-1,-2,-2,-2,-1,-1,-1],
+                   [-1,-1,-1,-2,-2,-2,-1,-1,-1]])
+    Gx = convolve(image,Kx)
+    Gy = convolve(image,Ky)
     G = np.sqrt(Gx**2 + Gy**2)
     theta = np.arctan(Gy/(Gx+1e-20))
 
