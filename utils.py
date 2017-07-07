@@ -2,6 +2,8 @@ import numpy as np
 import os
 from glob import glob
 from scipy import misc
+import tensorflow as tf
+
 
 
 
@@ -22,10 +24,10 @@ def rgb2gray(image,option=0):
 
 
 
-def pushwhite(image):
+def pushwhite(image,threshold=60.):
 
     # Push non-black colors to white
-    lines = np.minimum(((img/60.)**8)*30.,img*0.+255.)  # 25 is harder cut, 60 is safe
+    lines = np.minimum(((image/threshold)**8)*30.,image*0.+255.)  # 25 is harder cut, 60 is safe
 
     return lines
 
@@ -124,9 +126,35 @@ def linedetector(image):
 
 
 
-def decolor():
+def get_lines(colors):
+
+    # Get line art from original color image
+
+    image = rgb2gray(colors)
+
+    # Combine multiple filters to get best line detection
+    edges_c = canny(image)[0]
+    edges_l = linedetector(image)[0]
+    blur = np.array([[1,2,1],[2,4,2],[1,2,1]])
+
+    edges = convolve(edges_c/edges_c.max() + 2.*edges_l/edges_l.max(), blur)
+    blacks = convolve(pushwhite(image,95),blur)
     
-    # get raw color files and convert to "line art"
+    lines = (1. - 0.8*(blacks/blacks.max())**3) * edges
+
+    # Covert lines back to black
+    # blow out near-white pixels
+    lines = (1. - lines/lines.max())*255.
+    lines = lines * (lines < 200.) + 255. * (lines >= 200.)
+
+    return lines
+
+
+
+
+def decolor():   # obsolete?
+    
+    # Get raw color files and convert to "line art"
     
     # read in files
     files = glob(os.path.join("raws","*.png"))
@@ -138,8 +166,6 @@ def decolor():
     for i in range(rawimages.shape[0]-1):
         imgindex[i+1] = np.mean( np.sqrt((rawimages[i,:,:,:]-rawimages[i+1,:,:,:])**2) )
     uniqueimgs = (imgindex > 1.5)
-        # right now imgindex threshold needs to be tuned by hand
-        # should find better way to do this
     
     # convert to grayscale and push grays to white
     decolored = np.zeros(rawimages.shape[:3])
@@ -152,4 +178,51 @@ def decolor():
             decolored[i,:,:] = rgb2gray(rawimages[i,:,:,:])
 
     return [rawimages,decolored,imgindex]
+
+
+
+
+def get_unique_imgs():
+
+    # select unique training images and move them to training directory
+
+    # read in files
+    files = glob(os.path.join("raws","*.png"))
+    rawimages = np.array([misc.imread(file) for file in files])
+    imgindex = np.zeros(rawimages.shape[0],dtype=np.float32)
+    
+    # only use images sufficiently different from one another
+    imgindex[0] = 10.
+    for i in range(rawimages.shape[0]-1):
+        imgindex[i+1] = np.mean( np.sqrt((rawimages[i,:,:,:]-rawimages[i+1,:,:,:])**2) )
+    uniqueimgs = (imgindex > 1.5)
+        # right now imgindex threshold needs to be tuned by hand
+        # should find better way to do this
+
+    # write images to directory, using original file names
+    for i in range(rawimages.shape[0]):
+        if (uniqueimgs[i]):
+            misc.imsave(os.path.join( "training","colors", os.path.split(files[i])[1] ), rawimages[i])
+
+    return rawimages
+
+
+
+
+def generate_lines():
+
+    # generate training inputs from full-color outputs
+
+    # read in files
+    files = glob(os.path.join("training","colors","*.png"))
+    rawimages = np.array([misc.imread(file) for file in files])
+    imgindex = np.zeros(rawimages.shape[0],dtype=np.float32)
+
+    for i in range(rawimages.shape[0]):
+        line_img = get_lines(rawimages[i])
+        misc.imsave(os.path.join( "training","lines", os.path.split(files[i])[1] ), line_img)
+
+    return rawimages
+
+
 
