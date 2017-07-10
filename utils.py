@@ -126,6 +126,16 @@ def linedetector(image):
 
 
 
+def blur(image):
+
+    kernel = np.array([[1,2,1],[2,4,2],[1,2,1]])
+    output = convolve(image, kernel)
+
+    return output
+
+
+
+
 def get_lines(colors):
 
     # Get line art from original color image
@@ -135,10 +145,9 @@ def get_lines(colors):
     # Combine multiple filters to get best line detection
     edges_c = canny(image)[0]
     edges_l = linedetector(image)[0]
-    blur = np.array([[1,2,1],[2,4,2],[1,2,1]])
 
     edges = convolve(edges_c/edges_c.max() + 2.*edges_l/edges_l.max(), blur)
-    blacks = convolve(pushwhite(image,95),blur)
+    blacks = blur(pushwhite(image,95))
     
     lines = (1. - 0.8*(blacks/blacks.max())**3) * edges
 
@@ -148,6 +157,26 @@ def get_lines(colors):
     lines = lines * (lines < 200.) + 255. * (lines >= 200.)
 
     return lines
+
+
+
+
+
+def get_colors(solid, original):
+
+    # Get line art from original color image
+
+    blacks = rgb2gray(solid)
+    blacks = pushwhite( blur(blacks),250.)
+
+    mask = (1. - blacks/blacks.max())
+    colors = original
+
+    for i in range(3):
+        colors[:,:,i] = mask * original[:,:,i]
+
+    return colors
+
 
 
 
@@ -188,7 +217,7 @@ def get_unique_imgs():
 
     # read in files
     files = glob(os.path.join("raws","*.png"))
-    rawimages = np.array([misc.imread(file) for file in files])
+    rawimages = np.array([misc.imread(file,mode='RGB') for file in files])
     imgindex = np.zeros(rawimages.shape[0],dtype=np.float32)
     
     # only use images sufficiently different from one another
@@ -202,7 +231,7 @@ def get_unique_imgs():
     # write images to directory, using original file names
     for i in range(rawimages.shape[0]):
         if (uniqueimgs[i]):
-            misc.imsave(os.path.join( "training","colors", os.path.split(files[i])[1] ), rawimages[i])
+            misc.imsave(os.path.join( "training","original", os.path.split(files[i])[1] ), rawimages[i])
 
     return rawimages
 
@@ -214,9 +243,8 @@ def generate_lines():
     # generate training inputs from full-color outputs
 
     # read in files
-    files = glob(os.path.join("training","colors","*.png"))
-    rawimages = np.array([misc.imread(file) for file in files])
-    imgindex = np.zeros(rawimages.shape[0],dtype=np.float32)
+    files = glob(os.path.join("training","original","*.png"))
+    rawimages = np.array([misc.imread(file,mode='RGB') for file in files])
 
     for i in range(rawimages.shape[0]):
         line_img = get_lines(rawimages[i])
@@ -224,5 +252,24 @@ def generate_lines():
 
     return rawimages
 
+
+
+
+def get_solids():
+
+    # take blacked-in images and corresponding colored images
+    # and generate better full-color outputs for training
+    # i.e. we don't want background art
+
+    files = glob(os.path.join("training","solids","*.png"))
+    solids = np.array([misc.imread(file,mode='RGB') for file in files])
+
+    for i in range(solids.shape[0]):
+        original = np.array(
+            misc.imread(os.path.join( "training","original", os.path.split(files[i])[1] )) )
+        color_img = get_colors(solids[i],original)
+        misc.imsave(os.path.join( "training","colors", os.path.split(files[i])[1] ), color_img)
+
+    return solids
 
 
