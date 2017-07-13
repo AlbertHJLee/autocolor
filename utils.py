@@ -255,7 +255,7 @@ def generate_lines():
 
 
 
-def get_solids():
+def generate_solids():
 
     # take blacked-in images and corresponding colored images
     # and generate better full-color outputs for training
