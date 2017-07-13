@@ -199,9 +199,15 @@ def get_testing_data():
 
 def image_closeness(imgset1,imgset2):
 
-    images = tf.reduce_mean(tf.exp(10.*(imgset1 - imgset2)),[1,2,3])
+    colors = tf.reduce_mean(tf.square(imgset1-imgset2),[3])
+    images = tf.reduce_mean(tf.exp(2.*colors),[1,2])
     #return tf.reduce_mean( tf.log(images+.1) )
     return tf.reduce_mean( images )
+
+
+def variance(img):
+
+    return tf.reduce_mean( tf.square(img)) - tf.square(tf.reduce_mean(img))
 
 
 
@@ -237,7 +243,9 @@ def main(epochs=2000, batchsize=20, update_int=100, drop=1, optimizer=1, **opt_p
 
     y_out, keep_prob = color_from_lines(x, int(imgH), int(imgW), drop)
 
-    objective = image_closeness(y_, y_out)
+    objective = image_closeness(y_, y_out) \
+                - 100.*variance(y_out) \
+                - 1000.*tf.reduce_mean(y_out)
     if optimizer is 1:
         train_step = tf.train.AdamOptimizer(**opt_params).minimize(objective)
     elif optimizer is 2:
