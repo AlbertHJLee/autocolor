@@ -6,6 +6,8 @@ import tensorflow as tf
 
 from utils import *
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
+
 
 
 
@@ -83,7 +85,10 @@ def upsample(x,height,width):
     return tf.image.resize_images(x,tf.cast([height,width],tf.int32))
 
 def dropout(x,keep_prob):
-    return tf.nn.dropout(x, keep_prob) 
+    return tf.nn.dropout(x, keep_prob)
+
+def adjust(x):
+    return tf.nn.relu(x)
 
 
 
@@ -100,7 +105,7 @@ def color_from_lines(x, imgH, imgW, doDrop=0):
     # First convolution layer
     W_1 = weight_variable([5,5,1,32])
     b_1 = bias_variable([32])
-    h_conv1 = tf.nn.relu( conv2d(x_input,W_1) + b_1)
+    h_conv1 = adjust( conv2d(x_input,W_1) + b_1)
 
     # Pooling (downsample by 2)
     # Maybe try averaging instead?
@@ -109,7 +114,7 @@ def color_from_lines(x, imgH, imgW, doDrop=0):
     # Second convolution layer
     W_2 = weight_variable([5,5,32,64])
     b_2 = bias_variable([64])
-    h_conv2 = tf.nn.relu( conv2d(h_pool1,W_2) + b_2)
+    h_conv2 = adjust( conv2d(h_pool1,W_2) + b_2)
 
     # Second pooling
     h_pool2 = maxpool(h_conv2)
@@ -117,12 +122,12 @@ def color_from_lines(x, imgH, imgW, doDrop=0):
     # Third convolution layer
     W_3 = weight_variable([5,5,64,128])
     b_3 = bias_variable([128])
-    h_conv3 = tf.nn.relu( conv2d(h_pool2,W_3) + b_3)
+    h_conv3 = adjust( conv2d(h_pool2,W_3) + b_3)
     
     # Fourth convolution layer
     W_4 = weight_variable([5,5,128,128])
     b_4 = bias_variable([128])
-    h_conv4 = tf.nn.relu( conv2d(h_conv3,W_4) + b_4)
+    h_conv4 = adjust( conv2d(h_conv3,W_4) + b_4)
 
     # Upsample images
     keep_prob = tf.placeholder(tf.float32)
@@ -135,11 +140,11 @@ def color_from_lines(x, imgH, imgW, doDrop=0):
     # Fifth convolution layer
     W_5 = weight_variable([5,5,128,64])
     b_5 = bias_variable([64])
-    h_conv5 = tf.nn.relu( conv2d(h_up4,W_5) + b_5)
+    h_conv5 = adjust( conv2d(h_up4,W_5) + b_5)
 
     # Use residual info from previous images with this resolution
     reweight_5 = weight_variable([5,5,64,64])
-    h_combine5 = h_conv5 + tf.nn.relu(conv2d(h_conv2,reweight_5))
+    h_combine5 = h_conv5 + adjust(conv2d(h_conv2,reweight_5))
 
     # Second upsampling
     if doDrop >= 1:
@@ -153,7 +158,7 @@ def color_from_lines(x, imgH, imgW, doDrop=0):
     W_6 = weight_variable([5,5,64,3])
     b_6 = bias_variable([3])
     reweight_6 = weight_variable([5,5,32,3])
-    y_out = tf.nn.relu( conv2d(h_up5,W_6) + conv2d(h_conv1,reweight_6) + b_6)
+    y_out = adjust( conv2d(h_up5,W_6) + conv2d(h_conv1,reweight_6) + b_6)
 
     return y_out, keep_prob
 
@@ -171,7 +176,7 @@ def get_training_data():
             misc.imread(os.path.join( "training","lines", os.path.split(files[i])[1] ),
                         mode='RGB') ))
 
-    return lines, colors
+    return lines/255., colors/255.
 
 
 
@@ -187,29 +192,32 @@ def get_testing_data():
             misc.imread(os.path.join( "testing","lines", os.path.split(files[i])[1] ),
                         mode='RGB') ))
 
-    return lines, colors
+    return lines/255., colors/255.
 
 
 
 
 def image_closeness(imgset1,imgset2):
 
-    images = tf.reduce_mean(tf.square(imgset1 - imgset2),[1,2,3])
-    return tf.reduce_mean( tf.tanh(images) )
+    images = tf.reduce_mean(tf.exp(10.*(imgset1 - imgset2)),[1,2,3])
+    #return tf.reduce_mean( tf.log(images+.1) )
+    return tf.reduce_mean( images )
 
 
 
-def image_match(imgset1,imgset2,window=10):
+def image_match(imgset1,imgset2,window=0.05):
 
     pixel_max = tf.maximum(tf.abs(imgset1-imgset2),(imgset1*0.+window))
-    pixel_flip = tf.exp( window - pixel_max )
+    pixel_flip = tf.exp( 10.*(window - pixel_max) )
     image_matches = tf.reduce_mean(pixel_flip,[1,2,3])
     return image_matches
 
 
 
 
-def main(epochs=2000):
+def main(epochs=2000, batchsize=20, update_int=100, drop=1, optimizer=1, **opt_params):
+
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 
     print("Loading training data... ")
     [lines, colors] = get_training_data()
@@ -227,15 +235,20 @@ def main(epochs=2000):
     x = tf.placeholder(tf.float32, [None,imgH,imgW])
     y_ = tf.placeholder(tf.float32, [None,imgH,imgW,3])
 
-    y_out, keep_prob = color_from_lines(x, int(imgH), int(imgW), 1)
+    y_out, keep_prob = color_from_lines(x, int(imgH), int(imgW), drop)
 
     objective = image_closeness(y_, y_out)
-    train_step = tf.train.AdamOptimizer(1e-4).minimize(objective)
+    if optimizer is 1:
+        train_step = tf.train.AdamOptimizer(**opt_params).minimize(objective)
+    elif optimizer is 2:
+        train_step = tf.train.AdagradDAOptimizer(**opt_params).minimize(objective)
+    else:
+        train_step = tf.train.AdadeltaOptimizer(**opt_params).minimize(objective)
     correct_prediction = image_match(y_, y_out)
     accuracy = tf.reduce_mean(correct_prediction)
 
     print("Running session... ")
-    batchsize = 15
+    batchsize = 20
     if numimgs % batchsize == 0:
         offset = 3
     elif numimgs % batchsize == 5:
@@ -254,10 +267,13 @@ def main(epochs=2000):
             line_in = lines[index:(index+batchsize)]
             color_in = colors[index:(index+batchsize)]
             
-            if i % 100 == 0:
+            if i % update_int == 0:
                 train_accuracy = accuracy.eval(feed_dict={
                     x: line_in, y_: color_in, keep_prob: 1.0})
-                print('step %d, training accuracy %g' % (i, train_accuracy))
+                obj_val = objective.eval(feed_dict={
+                    x: line_in, y_: color_in, keep_prob: 1.0})
+                print('step %d, accuracy %8g, objective %8g' \
+                      % (i, train_accuracy, obj_val))
                 guesses = y_out.eval(feed_dict={
                     x:lines_test[0:savesize], y_:colors_test[0:savesize], keep_prob:1.0})
                 for j in range(savesize):
@@ -275,7 +291,7 @@ def main(epochs=2000):
 
     for j in range(writesize):
         misc.imsave(
-            os.path.join( "training","guesses","%05d.png" % j ), guesses[i])
+            os.path.join( "training","guesses","%05d.png" % j ), guesses[j])
         
     return guesses
 
