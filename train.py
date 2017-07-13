@@ -235,36 +235,45 @@ def main(epochs=2000):
     accuracy = tf.reduce_mean(correct_prediction)
 
     print("Running session... ")
-    batchsize = 25
+    batchsize = 15
     if numimgs % batchsize == 0:
         offset = 3
     elif numimgs % batchsize == 5:
         offset = 4
     else:
         offset = 0
+
+    savesize = 15
+    writesize = 50
+        
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
+        
         for i in range(epochs):
             index = (i*batchsize) % (numimgs - batchsize - offset)
             line_in = lines[index:(index+batchsize)]
             color_in = colors[index:(index+batchsize)]
+            
             if i % 100 == 0:
                 train_accuracy = accuracy.eval(feed_dict={
                     x: line_in, y_: color_in, keep_prob: 1.0})
                 print('step %d, training accuracy %g' % (i, train_accuracy))
-                guesses = y_out.eval(feed_dict={x:lines_test, y_out:colors_test})
-                for j in range(num_test):
+                guesses = y_out.eval(feed_dict={
+                    x:lines_test[0:savesize], y_:colors_test[0:savesize], keep_prob:1.0})
+                for j in range(savesize):
                     misc.imsave(
                         os.path.join(
-                            "training","guesses","test%05d-%05d.png" % (j,i) ), guesses[i])
+                            "training","guesses","test%05d-%05d.png" % (j,i) ), guesses[j])
+                    
             train_step.run(feed_dict={x: line_in, y_: color_in, keep_prob: 0.5})
 
         print('test accuracy %g' % accuracy.eval(feed_dict={
             x: lines_test, y_: colors_test, keep_prob: 1.0}))
 
-        guesses = y_out.eval(feed_dict={x:lines, y_out:colors})
+        guesses = y_out.eval(feed_dict={
+            x:lines[0:writesize], y_:colors[0:writesize], keep_prob:1.0})
 
-    for j in range(numimgs):
+    for j in range(writesize):
         misc.imsave(
             os.path.join( "training","guesses","%05d.png" % j ), guesses[i])
         
