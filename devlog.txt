@@ -25,7 +25,7 @@ We may be able to take advantage of this by using a kernel sensitive to sharp gr
 
 2017.7.13
 
-Currently can generate a workable traning set.
+Currently can generate a workable training set.
 
 Problem:
 Objective function doesn't optimize to desired result.
@@ -36,3 +36,27 @@ Augmenting training data by randomizing background colors might help network bec
 Need to make sure network is trainable (i.e. neurons don't have bad zero-ing behavior).
 Need to make sure sampler is good.
 
+
+
+2017.7.26
+
+Hidden neurons are far too opaque to understand at the moment.
+We have opted to first train a classifier which will later be used as a side branch of the CNN.
+
+A vector of labels from the classifier will aid in coloring because:
+  The information contained in the colored images is much smaller than the max amount allowed by the image
+  This information is highly correlated with a vector of labels
+
+Since multiple characters can show up in one image, the vector will NOT be one-hot.
+We will have to use something other than a softmax loss function.
+  Currently experimenting with a simple dot product between guess and truth vectors.
+
+Classifier seems to be working okay.
+We need to try it on larger training and testing sets.
+
+Next step:
+Obtain larger training sets.
+Add "no characters" and "other character" labels.
+  Test if the above improves classification.
+Feed vector of labels into main CNN.
+Address problems in previous log entry.
