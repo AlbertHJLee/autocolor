@@ -12,57 +12,9 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 
 
 
-def cropdata(images, factor=8):
-    
-    # Given np array of images, crop to dimensions usable by training net
-    # i.e. dimensions must be divisible by power of 2
-
-    factor = int(factor)
-    if not bool(factor and not (factor&(factor-1))):
-        print('factor is not power of 2')
-        return False
-
-    dimensions = images.shape
-    height = dimensions[1]
-    width = dimensions[2]
-    targetH = int(height/factor)*factor
-    targetW = int(width/factor)*factor
-    delH = height - targetH
-    delW = width - targetW
-    y1 = int(delH*.5)
-    y2 = y1+targetH
-    x1 = int(delW*.5)
-    x2 = x1+targetW
-    if len(dimensions) is 4:
-        cropped = images[:,y1:y2,x1:x2,:]
-    else:
-        cropped = images[:,y1:y2,x1:x2]
-
-    return cropped
-
-
-
-def downsample(images, factor=4):
-    
-    f = int(factor)
-    dims = images.shape
-    if len(dims) is 4:
-        output = np.zeros([dims[0],dims[1]//f,dims[2]//f,dims[3]])
-    else:
-        output = np.zeros([dims[0],dims[1]//f,dims[2]//f])
-        
-    for i in range(dims[1]//f):
-        for j in range(dims[2]//f):
-            output[:,i,j] = np.mean( np.mean(
-                images[:,(f*i):(f*i+f-1),(f*j):(f*j+f-1)],1),1)
-            
-    return output
 
     
-
-
-    
-""" Using functions from tf tutorial """
+""" Functions borrowed from tf tutorial """
 
 def conv2d(x,W):
     return tf.nn.conv2d(x, W, strides=[1,1,1,1], padding='SAME')
@@ -81,6 +33,7 @@ def bias_variable(shape):
 
 
 
+""" New functions """
 
 def upsample(x,height,width):
     return tf.image.resize_images(x,tf.cast([height,width],tf.int32))
@@ -93,6 +46,10 @@ def adjust(x):
 
 
 
+
+
+
+""" CNN constructors """
 
 
 def color_from_lines(x, imgH, imgW, doDrop=0):
@@ -223,6 +180,11 @@ def labels_from_lines(x, imgH, imgW, doDrop=0, nclasses=7):
 
 
 
+
+
+""" Utils for importing data """
+
+
 def get_training_data():
 
     files = glob(os.path.join("training","colors","*.png"))
@@ -237,8 +199,6 @@ def get_training_data():
     return lines/255., colors/255.
 
 
-
-
 def get_testing_data():
 
     files = glob(os.path.join("testing","colors","*.png"))
@@ -251,7 +211,6 @@ def get_testing_data():
                         mode='RGB') ))
 
     return lines/255., colors/255.
-
 
 
 def get_labels(test=0):
@@ -279,18 +238,14 @@ def get_labels(test=0):
 
 
 
-def image_closeness(imgset1,imgset2):
 
-    colors = tf.reduce_mean(tf.square(imgset1-imgset2),[3])
-    images = tf.reduce_mean(tf.exp(2.*colors),[1,2])
-    #return tf.reduce_mean( tf.log(images+.1) )
-    return tf.reduce_mean( images )
+
+""" Utils for constructing Objective functions """
 
 
 def variance(img):
 
     return tf.reduce_mean( tf.square(img)) - tf.square(tf.reduce_mean(img))
-
 
 
 def dot_product(y1,y2):
@@ -316,6 +271,13 @@ def threshold_match(y1,y2, threshold=.7):
                                             ), tf.float32), [1])
 
 
+def image_closeness(imgset1,imgset2):
+
+    colors = tf.reduce_mean(tf.square(imgset1-imgset2),[3])
+    images = tf.reduce_mean(tf.exp(2.*colors),[1,2])
+    #return tf.reduce_mean( tf.log(images+.1) )
+    return tf.reduce_mean( images )
+
 
 def image_match(imgset1,imgset2,window=0.05):
 
@@ -328,6 +290,8 @@ def image_match(imgset1,imgset2,window=0.05):
 
 
 
+
+""" Training routines """
 
 
 def train_labels(epochs=2000, batchsize=20, update_int=100, drop=1, optimizer=1, **opt_params):
@@ -512,8 +476,6 @@ def main(epochs=2000, batchsize=20, update_int=100, drop=1, optimizer=1, **opt_p
             os.path.join( "training","guesses","%05d.png" % j ), guesses[j])
         
     return guesses
-
-
 
 
     

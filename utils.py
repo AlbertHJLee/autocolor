@@ -2,9 +2,59 @@ import numpy as np
 import os
 from glob import glob
 from scipy import misc
-import tensorflow as tf
 
 
+
+
+def cropdata(images, factor=8):
+    
+    # Given np array of images, crop to dimensions usable by training net
+    # i.e. dimensions must be divisible by power of 2
+
+    factor = int(factor)
+    if not bool(factor and not (factor&(factor-1))):
+        print('factor is not power of 2')
+        return False
+
+    dimensions = images.shape
+    height = dimensions[1]
+    width = dimensions[2]
+    targetH = int(height/factor)*factor
+    targetW = int(width/factor)*factor
+    delH = height - targetH
+    delW = width - targetW
+    y1 = int(delH*.5)
+    y2 = y1+targetH
+    x1 = int(delW*.5)
+    x2 = x1+targetW
+    if len(dimensions) is 4:
+        cropped = images[:,y1:y2,x1:x2,:]
+    else:
+        cropped = images[:,y1:y2,x1:x2]
+
+    return cropped
+
+
+
+def downsample(images, factor=4):
+
+    # Downsample image by some factor
+    
+    f = int(factor)
+    dims = images.shape
+    if len(dims) is 4:
+        output = np.zeros([dims[0],dims[1]//f,dims[2]//f,dims[3]])
+    else:
+        output = np.zeros([dims[0],dims[1]//f,dims[2]//f])
+        
+    for i in range(dims[1]//f):
+        for j in range(dims[2]//f):
+            output[:,i,j] = np.mean( np.mean(
+                images[:,(f*i):(f*i+f-1),(f*j):(f*j+f-1)],1),1)
+            
+    return output
+
+    
 
 
 def rgb2gray(image,option=0):
