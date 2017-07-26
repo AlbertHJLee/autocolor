@@ -5,6 +5,10 @@ __pycache__/
 
 # data
 *.png
+*.csv
+
+# logs, records
+*.log
 
 # Packaging
 raws/
