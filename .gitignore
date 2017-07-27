@@ -9,6 +9,7 @@ __pycache__/
 
 # logs, records
 *.log
+*.zip
 
 # tensorflow models
 *checkpoint
