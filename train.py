@@ -339,7 +339,7 @@ def image_match(imgset1,imgset2,window=0.05):
 
 
 def train_labels(epochs=2000, batchsize=20, update_int=100, load=-1, save=0,
-                 drop=1, optimizer=1, **opt_params):
+                 drop=1, optimizer=1, return_all=False, **opt_params):
 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 
@@ -393,10 +393,7 @@ def train_labels(epochs=2000, batchsize=20, update_int=100, load=-1, save=0,
     
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-
-        #if (load >= 0):
-        #    restore_model(sess,saver,load)
-        
+       
         for i in range(epochs):
             index = (i*batchsize) % (numimgs - batchsize - offset)
             line_in = lines[index:(index+batchsize)]
@@ -407,17 +404,19 @@ def train_labels(epochs=2000, batchsize=20, update_int=100, load=-1, save=0,
                     x: line_in, y_: label_in, keep_prob: 1.0})
                 obj_val = objective.eval(feed_dict={
                     x: line_in, y_: label_in, keep_prob: 1.0})
-                print('step %d, accuracy %8g, objective %8g' \
+                print('step %d, training set accuracy %8g, objective %8g' \
                       % (i, train_accuracy, obj_val))
-                guesses = y_out.eval(feed_dict={
+                guesses_test = y_out.eval(feed_dict={
                     x:lines_test[0:savesize], y_:labels_test[0:savesize], keep_prob:1.0})
                 np.savetxt(
                     os.path.join(
-                        "training","guesses","test%05d.csv" % (i)), guesses, delimiter=",")
+                        "training","guesses","test%05d.csv" % (i)), guesses_test, delimiter=",")
+
+                # PROBABLY BETTER TO SAVE TRAINING DATA HERE - SWAP OUT?
                 
-                flags = y_int.eval(feed_dict={
+                flags_test = y_int.eval(feed_dict={
                     x:lines_test[0:savesize], y_:labels_test[0:savesize], keep_prob:1.0})
-                flagout[:,1:] = flags
+                flagout[:,1:] = flags_test
                 np.savetxt(
                     os.path.join(
                         "training","guesses","t_int%05d.csv" % (i)),
@@ -445,8 +444,12 @@ def train_labels(epochs=2000, batchsize=20, update_int=100, load=-1, save=0,
     flagout[:,1:] = flags
     np.savetxt( os.path.join("training","guesses","final_int.csv"),
                 flagout, fmt='%04u,%u%u%u%u%u%u%u',delimiter=",")
-        
-    return guesses
+
+    if return_all:
+        return guesses, labels[0:writesize], lines[0:writesize], \
+               guesses_test, flags_test, lines_test[0:savesize]
+    
+    return guesses, labels[0:writesize], lines[0:writesize]
 
 
 
