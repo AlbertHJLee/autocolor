@@ -10,6 +10,12 @@ __pycache__/
 # logs, records
 *.log
 
+# tensorflow models
+*checkpoint
+*.data-*
+*.index
+*.meta
+
 # Packaging
 raws/
 training/

@@ -240,6 +240,50 @@ def get_labels(test=0):
 
 
 
+""" Utils for saving/loading models """
+
+def save_model(sess, saver, checkpoint):
+
+    print("Saving model...")
+
+    name = "labels_from_lines"
+    if (checkpoint == 0):
+        fname = name + ".ckpt"
+        path = os.path.join("models",fname)
+        savepath = saver.save(sess,path)
+    else:
+        path = os.path.join("models",name)
+        savepath = saver.save(sess, path, global_step=checkpoint)
+
+    print("Model saved in %s" % savepath)
+              
+    return True
+
+
+
+def restore_model(sess, saver, checkpoint):
+
+    name = "labels_from_lines"
+    if (checkpoint == 0):
+        fname = name + ".ckpt"
+    else:
+        fname = name + "-" + str(checkpoint)
+
+    path = os.path.join("models",fname)
+    if not os.path.isfile(path + ".index"):
+        print("Model not found. Using default initialization, if any.")
+    else:
+        print("Restoring model...")
+        saver.restore(sess, path)
+        print("Model restored.")
+              
+    return True
+
+
+
+
+
+
 """ Utils for constructing Objective functions """
 
 
@@ -294,7 +338,8 @@ def image_match(imgset1,imgset2,window=0.05):
 """ Training routines """
 
 
-def train_labels(epochs=2000, batchsize=20, update_int=100, drop=1, optimizer=1, **opt_params):
+def train_labels(epochs=2000, batchsize=20, update_int=100, load=-1, save=0,
+                 drop=1, optimizer=1, **opt_params):
 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 
@@ -343,9 +388,14 @@ def train_labels(epochs=2000, batchsize=20, update_int=100, drop=1, optimizer=1,
     writesize = 150
     flagout = np.zeros([savesize,nlabels+1])
     flagout[:,0] = np.arange(savesize)
-        
+
+    saver = tf.train.Saver()
+    
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
+
+        #if (load >= 0):
+        #    restore_model(sess,saver,load)
         
         for i in range(epochs):
             index = (i*batchsize) % (numimgs - batchsize - offset)
@@ -372,12 +422,18 @@ def train_labels(epochs=2000, batchsize=20, update_int=100, drop=1, optimizer=1,
                     os.path.join(
                         "training","guesses","t_int%05d.csv" % (i)),
                         flagout, fmt='%04u,%u%u%u%u%u%u%u', delimiter=",")
+
+            if (i == 1) and (load >= 0):
+                restore_model(sess,saver,load)
                     
             train_step.run(feed_dict={x: line_in, y_: label_in, keep_prob: 0.5})
 
         print('test accuracy %g' % accuracy.eval(feed_dict={
             x: lines_test, y_: labels_test, keep_prob: 1.0}))
 
+        if (save >= 0):
+            save_model(sess,saver,save)
+        
         guesses = y_norm.eval(feed_dict={
             x:lines[0:writesize], y_:labels[0:writesize], keep_prob:1.0})
         flags = y_int.eval(feed_dict={
